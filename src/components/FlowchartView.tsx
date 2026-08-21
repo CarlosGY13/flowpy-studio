@@ -255,8 +255,14 @@ export default function FlowchartView({ graph, isLoading }: FlowchartViewProps) 
   const [selectedFunction, setSelectedFunction] = useState<string | null>(null)
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
   const nodeDragStart = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
+  const isRestoringOffsets = useRef(false)
 
   const displayGraph = selectedFunction ? graph?.functions?.[selectedFunction] ?? graph : graph
+  const layoutStorageKey = useMemo(() => {
+    if (!displayGraph) return null
+    const signature = displayGraph.nodes.map((node) => `${node.type}:${node.label}`).join('|')
+    return `flowpy-node-positions:${selectedFunction ?? 'main'}:${signature}`
+  }, [displayGraph, selectedFunction])
 
   const layout = useMemo(() => {
     if (!displayGraph) return null
@@ -285,8 +291,31 @@ export default function FlowchartView({ graph, isLoading }: FlowchartViewProps) 
   }, [displayGraph, nodeOffsets])
 
   useEffect(() => {
-    setNodeOffsets({})
-  }, [graph, selectedFunction])
+    if (!layoutStorageKey) {
+      setNodeOffsets({})
+      return
+    }
+    try {
+      const saved = window.localStorage.getItem(layoutStorageKey)
+      isRestoringOffsets.current = true
+      setNodeOffsets(saved ? JSON.parse(saved) : {})
+    } catch {
+      setNodeOffsets({})
+    }
+  }, [layoutStorageKey])
+
+  useEffect(() => {
+    if (!layoutStorageKey) return
+    if (isRestoringOffsets.current) {
+      isRestoringOffsets.current = false
+      return
+    }
+    try {
+      window.localStorage.setItem(layoutStorageKey, JSON.stringify(nodeOffsets))
+    } catch {
+      // Saving positions is optional when browser storage is unavailable.
+    }
+  }, [layoutStorageKey, nodeOffsets])
 
   useEffect(() => {
     setSelectedFunction(null)

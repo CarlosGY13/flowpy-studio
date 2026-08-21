@@ -37,3 +37,10 @@ export interface RunResult {
   graph: FlowGraph | null
   error: string | null
 }
+
+export interface DebugStep {
+  line: number
+  code: string
+  variables: Record<string, string>
+  output: string[]
+}

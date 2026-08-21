@@ -1,4 +1,4 @@
-import type { FlowGraph, FlowNode, TerminalLine } from '../types'
+import type { DebugStep, FlowGraph, FlowNode, TerminalLine } from '../types'
 
 declare global {
   interface Window {
@@ -56,11 +56,13 @@ export async function initPyodide(onStatus?: (msg: string) => void): Promise<Pyo
 
 export async function runPythonCode(
   code: string,
-  pyodide: PyodideInterface
+  pyodide: PyodideInterface,
+  inputs: string[] = []
 ): Promise<{ output: TerminalLine[]; graph: FlowGraph | null; error: string | null }> {
   const output: TerminalLine[] = []
 
   pyodide.globals.set('_user_code', code)
+  pyodide.globals.set('_flowpy_inputs', inputs)
 
   const runnerPy = `
 import io, json
@@ -69,6 +71,29 @@ from contextlib import redirect_stdout, redirect_stderr
 _stdout_buf = io.StringIO()
 _stderr_buf = io.StringIO()
 _result = {"lines": [], "graph": None, "error": None}
+_input_values = iter(list(_flowpy_inputs))
+
+def _simulated_input(prompt=""):
+    try:
+        return next(_input_values)
+    except StopIteration:
+        raise EOFError(f"FLOWPY_INPUT:{prompt}")
+
+def _friendly_error(error):
+    if isinstance(error, EOFError) and str(error).startswith("FLOWPY_INPUT:"):
+        return str(error)
+    if isinstance(error, SyntaxError):
+        return f"Error de sintaxis en línea {error.lineno}: {error.msg}"
+    if isinstance(error, ValueError) and "invalid literal for int" in str(error):
+        bad_value = str(error).split(":", 1)[-1].strip()
+        return f"Se esperaba un número entero, pero se recibió {bad_value}. Ingresa solo dígitos, por ejemplo: 18."
+    if isinstance(error, NameError):
+        return f"Usaste una variable que no existe todavía: {error}. Revisa su nombre o asígnale un valor antes."
+    if isinstance(error, TypeError):
+        return f"Los tipos de datos no son compatibles: {error}"
+    if isinstance(error, ZeroDivisionError):
+        return "No se puede dividir entre cero."
+    return f"{type(error).__name__}: {error}"
 
 try:
     _result["graph"] = build_flowchart(_user_code)
@@ -89,11 +114,11 @@ except Exception as e:
     _result["lines"].append({"type": "stderr", "text": f"Analizador de diagrama: {e}"})
 
 try:
-    _ns = {"__name__": "__main__"}
+    _ns = {"__name__": "__main__", "input": _simulated_input}
     with redirect_stdout(_stdout_buf), redirect_stderr(_stderr_buf):
         exec(_user_code, _ns)
 except Exception as e:
-    _result["error"] = str(e)
+    _result["error"] = _friendly_error(e)
 
 for line in _stdout_buf.getvalue().splitlines():
     _result["lines"].append({"type": "stdout", "text": line})
@@ -127,6 +152,125 @@ _result_json
     const msg = e instanceof Error ? e.message : String(e)
     output.push({ type: 'error', text: msg })
     return { output, graph: null, error: msg }
+  }
+}
+
+export async function debugPythonCode(
+  code: string,
+  pyodide: PyodideInterface,
+  inputs: string[] = []
+): Promise<{ output: TerminalLine[]; graph: FlowGraph | null; steps: DebugStep[]; error: string | null }> {
+  pyodide.globals.set('_user_code', code)
+  pyodide.globals.set('_flowpy_inputs', inputs)
+
+  const debuggerPy = `
+import io, json, sys
+from contextlib import redirect_stdout, redirect_stderr
+
+_stdout_buf = io.StringIO()
+_stderr_buf = io.StringIO()
+_result = {"lines": [], "graph": None, "steps": [], "error": None}
+_source_lines = _user_code.splitlines()
+_last_stdout = ""
+_input_values = iter(list(_flowpy_inputs))
+
+def _simulated_input(prompt=""):
+    try:
+        return next(_input_values)
+    except StopIteration:
+        raise EOFError(f"FLOWPY_INPUT:{prompt}")
+
+def _friendly_error(error):
+    if isinstance(error, EOFError) and str(error).startswith("FLOWPY_INPUT:"):
+        return str(error)
+    if isinstance(error, SyntaxError):
+        return f"Error de sintaxis en línea {error.lineno}: {error.msg}"
+    if isinstance(error, ValueError) and "invalid literal for int" in str(error):
+        bad_value = str(error).split(":", 1)[-1].strip()
+        return f"Se esperaba un número entero, pero se recibió {bad_value}. Ingresa solo dígitos, por ejemplo: 18."
+    if isinstance(error, NameError):
+        return f"Usaste una variable que no existe todavía: {error}. Revisa su nombre o asígnale un valor antes."
+    if isinstance(error, TypeError):
+        return f"Los tipos de datos no son compatibles: {error}"
+    if isinstance(error, ZeroDivisionError):
+        return "No se puede dividir entre cero."
+    return f"{type(error).__name__}: {error}"
+
+def _debug_value(value):
+    try:
+        text = repr(value)
+    except Exception:
+        text = "<no representable>"
+    return text if len(text) <= 100 else text[:99] + "…"
+
+def _trace(frame, event, arg):
+    global _last_stdout
+    if event == "line" and frame.f_code.co_filename == "<flowpy-debug>":
+        # A line event occurs just before its line is executed. Therefore,
+        # output accumulated since the previous event belongs to the previous
+        # debug step, not to every future step.
+        current_stdout = _stdout_buf.getvalue()
+        if _result["steps"]:
+            _result["steps"][-1]["output"] = current_stdout[len(_last_stdout):].splitlines()
+        _last_stdout = current_stdout
+        line_no = frame.f_lineno
+        variables = {
+            name: _debug_value(value)
+            for name, value in frame.f_locals.items()
+            if not name.startswith("__") and name not in ("input",)
+        }
+        _result["steps"].append({
+            "line": line_no,
+            "code": _source_lines[line_no - 1].strip() if line_no <= len(_source_lines) else "",
+            "variables": variables,
+            "output": [],
+        })
+    return _trace
+
+try:
+    _result["graph"] = build_flowchart(_user_code)
+except Exception:
+    pass
+
+_ns = {"__name__": "__main__", "input": _simulated_input}
+try:
+    with redirect_stdout(_stdout_buf), redirect_stderr(_stderr_buf):
+        sys.settrace(_trace)
+        try:
+            exec(compile(_user_code, "<flowpy-debug>", "exec"), _ns)
+        finally:
+            sys.settrace(None)
+except Exception as e:
+    _result["error"] = _friendly_error(e)
+
+# Capture a print on the final executed line, which has no following trace.
+if _result["steps"]:
+    current_stdout = _stdout_buf.getvalue()
+    _result["steps"][-1]["output"] = current_stdout[len(_last_stdout):].splitlines()
+
+for line in _stdout_buf.getvalue().splitlines():
+    _result["lines"].append({"type": "stdout", "text": line})
+for line in _stderr_buf.getvalue().splitlines():
+    if line:
+        _result["lines"].append({"type": "stderr", "text": line})
+_result_json = json.dumps(_result)
+_result_json
+`
+
+  try {
+    const resultJson = (await pyodide.runPythonAsync(debuggerPy)) as string
+    const result = JSON.parse(resultJson) as {
+      lines: TerminalLine[]
+      graph: FlowGraph | null
+      steps: DebugStep[]
+      error: string | null
+    }
+    const output = [...result.lines]
+    if (result.error) output.push({ type: 'error', text: result.error })
+    return { output, graph: result.graph, steps: result.steps, error: result.error }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return { output: [{ type: 'error', text: message }], graph: null, steps: [], error: message }
   }
 }
 
@@ -476,6 +620,16 @@ print("Promedio:", promedio)`,
 valores = [4, 8, 15, 16]
 resultado = calcular_total(valores)
 print("Total:", resultado)`,
+  },
+  {
+    name: 'Entrada interactiva',
+    code: `edad = int(input("¿Qué edad tienes?"))
+
+while edad != 18:
+    print("Todavía no tienes 18 años")
+    edad = int(input("¿Qué edad tienes?"))
+
+print("¡Ahora tienes 18 años!")`,
   },
 ]
 
