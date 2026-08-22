@@ -23,7 +23,6 @@ Si aparece un `input()`, la pregunta se muestra dentro de la salida. Escribe tu 
 - Ejemplos de `if`, `for`, `for` con `if`, NumPy, funciones e interacción con `input()`.
 - Un modo Debug que muestra la línea actual, las variables y la salida que el programa ha producido hasta ese momento.
 - Mensajes de error junto a la línea que necesita atención.
-- Retos cortos para practicar condicionales, bucles y detección de errores.
 
 ## Para practicar
 
