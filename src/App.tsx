@@ -10,7 +10,6 @@ import {
   Bug,
   ChevronLeft,
   ChevronRight,
-  Target,
 } from 'lucide-react'
 import CodeEditor from './components/CodeEditor'
 import Terminal from './components/Terminal'
@@ -25,32 +24,6 @@ import {
 import type { DebugStep, FlowGraph, TerminalLine } from './types'
 
 type PyodideInstance = Awaited<ReturnType<typeof initPyodide>>
-
-const CHALLENGES = [
-  {
-    name: 'Crea un if',
-    hint: 'Pide una edad y muestra un mensaje diferente para mayores y menores de edad.',
-    code: `edad = 16
-
-# Crea aquí un if que evalúe la edad
-`,
-  },
-  {
-    name: 'Encuentra el error',
-    hint: 'Este código tiene un error de sintaxis. Corrígelo y ejecútalo.',
-    code: `numero = 8
-
-if numero > 5
-    print("El número es mayor que 5")`,
-  },
-  {
-    name: 'Usa un for',
-    hint: 'Completa el bucle para mostrar los números del 1 al 5.',
-    code: `# Completa el cuerpo del for
-for numero in range(1, 6):
-    pass`,
-  },
-] as const
 
 function getInputPrompt(error: string | null): string | null {
   if (!error?.startsWith('FLOWPY_INPUT:')) return null
@@ -252,8 +225,6 @@ export default function App() {
   const [queuedInputValues, setQueuedInputValues] = useState<string[]>([])
   const [deferredDebugInput, setDeferredDebugInput] = useState<{ prompt: string; inputs: string[] } | null>(null)
   const [debugHistorySteps, setDebugHistorySteps] = useState<DebugStep[]>([])
-  const [showChallenges, setShowChallenges] = useState(false)
-  const [activeChallenge, setActiveChallenge] = useState<(typeof CHALLENGES)[number] | null>(null)
   const [syntaxErrorLine, setSyntaxErrorLine] = useState<number | undefined>()
   const [hasRestoredCode, setHasRestoredCode] = useState(false)
   const resizeStart = useRef({ x: 0, width: 540 })
@@ -451,15 +422,7 @@ export default function App() {
   const loadExample = (exampleCode: string) => {
     setCode(exampleCode)
     setSyntaxErrorLine(undefined)
-    setActiveChallenge(null)
     setShowExamples(false)
-  }
-
-  const loadChallenge = (challenge: (typeof CHALLENGES)[number]) => {
-    setCode(challenge.code)
-    setActiveChallenge(challenge)
-    setSyntaxErrorLine(undefined)
-    setShowChallenges(false)
   }
 
   return (
@@ -472,7 +435,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-base font-bold tracking-tight text-white">FlowPy Studio</h1>
-            <p className="text-[11px] text-slate-500">Aprende Python viendo diagramas de flujo</p>
+            <p className="text-[11px] text-slate-500">Aprendiendo Python</p>
           </div>
         </div>
 
@@ -488,7 +451,7 @@ export default function App() {
               <ChevronDown className={`h-3.5 w-3.5 transition ${showExamples ? 'rotate-180' : ''}`} />
             </button>
             {showExamples && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-52 animate-fade-in overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
+              <div className="absolute right-0 top-full z-50 mt-1 w-72 animate-fade-in overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
                 {EXAMPLES.map((ex) => (
                   <button
                     key={ex.name}
@@ -496,31 +459,6 @@ export default function App() {
                     className="block w-full px-4 py-2.5 text-left text-sm text-slate-300 transition hover:bg-slate-700"
                   >
                     {ex.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowChallenges(!showChallenges)}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100 transition hover:bg-amber-500/20"
-            >
-              <Target className="h-4 w-4" />
-              Retos
-              <ChevronDown className={`h-3.5 w-3.5 transition ${showChallenges ? 'rotate-180' : ''}`} />
-            </button>
-            {showChallenges && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
-                {CHALLENGES.map((challenge) => (
-                  <button
-                    key={challenge.name}
-                    onClick={() => loadChallenge(challenge)}
-                    className="block w-full px-4 py-3 text-left transition hover:bg-slate-700"
-                  >
-                    <span className="block text-sm font-medium text-amber-200">{challenge.name}</span>
-                    <span className="mt-0.5 block text-xs text-slate-400">{challenge.hint}</span>
                   </button>
                 ))}
               </div>
@@ -575,12 +513,6 @@ export default function App() {
               <span className="text-fuchsia-300">morados</span> son bucles.
             </p>
           </div>
-        </div>
-      )}
-
-      {activeChallenge && (
-        <div className="border-b border-amber-500/20 bg-amber-500/5 px-5 py-2 text-sm text-amber-100">
-          <span className="font-semibold">Reto: {activeChallenge.name}.</span> {activeChallenge.hint}
         </div>
       )}
 
@@ -749,12 +681,11 @@ export default function App() {
       )}
 
       {/* Click outside to close examples */}
-      {(showExamples || showChallenges) && (
+      {showExamples && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => {
             setShowExamples(false)
-            setShowChallenges(false)
           }}
         />
       )}

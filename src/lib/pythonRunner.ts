@@ -578,7 +578,7 @@ for n in numeros:
 
 export const EXAMPLES: { name: string; code: string }[] = [
   {
-    name: 'Condicional if',
+    name: 'Estructuras condicionales · if / else',
     code: `edad = 18
 
 if edad >= 18:
@@ -587,12 +587,12 @@ else:
     print("Aún no puedes votar")`,
   },
   {
-    name: 'Bucle for',
+    name: 'Estructuras iterativas · for',
     code: `for numero in range(1, 6):
     print("Número:", numero)`,
   },
   {
-    name: 'For con if',
+    name: 'Decisiones dentro de un bucle',
     code: `numeros = [3, 8, 12, 5, 20]
 
 for numero in numeros:
@@ -602,7 +602,7 @@ for numero in numeros:
         print(numero, "es menor que 10")`,
   },
   {
-    name: 'NumPy',
+    name: 'Arreglos y promedios con NumPy',
     code: `import numpy as np
 
 datos = np.array([10, 20, 30, 40, 50])
@@ -612,7 +612,7 @@ print("Datos:", datos)
 print("Promedio:", promedio)`,
   },
   {
-    name: 'Funciones',
+    name: 'Funciones y valores de retorno',
     code: `def calcular_total(numeros):
     total = sum(numeros)
     return total
@@ -622,7 +622,7 @@ resultado = calcular_total(valores)
 print("Total:", resultado)`,
   },
   {
-    name: 'Entrada interactiva',
+    name: 'Entrada de datos y ciclo while',
     code: `edad = int(input("¿Qué edad tienes?"))
 
 while edad != 18:
