@@ -66,3 +66,83 @@ body {
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+@keyframes analogy-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes analogy-balance {
+  0%, 100% { transform: rotate(0deg); }
+  45%, 55% { transform: rotate(-2deg); }
+}
+
+@keyframes analogy-train {
+  0% { transform: translateX(-18px); }
+  55%, 100% { transform: translateX(0); }
+}
+
+@keyframes analogy-folder {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(1deg); }
+}
+
+@keyframes analogy-machine {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(139, 92, 246, 0); }
+  50% { transform: scale(1.04); box-shadow: 0 0 24px rgba(139, 92, 246, 0.22); }
+}
+
+@keyframes analogy-input {
+  0%, 20% { transform: translateX(-12px); opacity: 0.45; }
+  45%, 100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes analogy-output {
+  0%, 52% { transform: translateX(-10px); opacity: 0; }
+  75%, 100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes assignment-value {
+  from { transform: translateX(-18px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes assignment-arrow {
+  0%, 25% { transform: translateX(-8px); opacity: 0.25; }
+  70%, 100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes assignment-container {
+  0%, 45% { transform: scale(0.96); box-shadow: 0 0 0 rgba(56, 189, 248, 0); }
+  75% { transform: scale(1.03); box-shadow: 0 0 24px rgba(56, 189, 248, 0.2); }
+  100% { transform: scale(1); }
+}
+
+.analogy-float { animation: analogy-float 3s ease-in-out infinite; }
+.analogy-balance { transform-origin: center bottom; animation: analogy-balance 3.5s ease-in-out infinite; }
+.analogy-train { animation: analogy-train 3s ease-in-out infinite alternate; }
+.analogy-folder { animation: analogy-folder 3.2s ease-in-out infinite; }
+.analogy-machine { animation: analogy-machine 2.4s ease-in-out infinite; }
+.analogy-input { animation: analogy-input 3.2s ease-in-out infinite; }
+.analogy-output { animation: analogy-output 3.2s ease-in-out infinite; }
+.assignment-value { animation: assignment-value 0.45s ease-out both; }
+.assignment-arrow { animation: assignment-arrow 0.65s ease-out both; }
+.assignment-container { animation: assignment-container 0.8s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .analogy-float,
+  .analogy-balance,
+  .analogy-train,
+  .analogy-folder,
+  .analogy-machine,
+  .analogy-input,
+  .analogy-output {
+    animation: none;
+  }
+
+  .assignment-value,
+  .assignment-arrow,
+  .assignment-container {
+    animation: none;
+  }
+}
