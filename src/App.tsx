@@ -10,10 +10,13 @@ import {
   Bug,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
+  FlaskConical,
 } from 'lucide-react'
 import CodeEditor from './components/CodeEditor'
 import Terminal from './components/Terminal'
 import FlowchartView from './components/FlowchartView'
+import LearnView from './components/LearnView'
 import {
   DEFAULT_CODE,
   debugPythonCode,
@@ -203,6 +206,7 @@ function InputPanel({
 }
 
 export default function App() {
+  const [activeView, setActiveView] = useState<'learn' | 'lab'>('learn')
   const [code, setCode] = useState(DEFAULT_CODE)
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([])
   const [flowGraph, setFlowGraph] = useState<FlowGraph | null>(null)
@@ -410,14 +414,14 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      if (activeView === 'lab' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
         handleRun()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleRun])
+  }, [activeView, handleRun])
 
   const loadExample = (exampleCode: string) => {
     setCode(exampleCode)
@@ -425,10 +429,19 @@ export default function App() {
     setShowExamples(false)
   }
 
+  const openLessonInLab = (lessonCode: string) => {
+    setCode(lessonCode)
+    setSyntaxErrorLine(undefined)
+    setTerminalLines([{ type: 'info', text: 'Lección cargada. Presiona Ejecutar para ver el resultado.' }])
+    setFlowGraph(null)
+    setDebugSteps(null)
+    setActiveView('lab')
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <header className="relative z-50 flex shrink-0 items-center gap-4 border-b border-slate-800 bg-slate-900/80 px-5 py-3 backdrop-blur-md">
+      <header className="relative z-50 flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/80 px-3 py-3 backdrop-blur-md sm:px-5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 shadow-lg shadow-sky-500/20">
             <Sparkles className="h-5 w-5 text-white" />
@@ -439,7 +452,26 @@ export default function App() {
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <nav className="order-3 flex w-full rounded-xl border border-slate-800 bg-slate-950/50 p-1 sm:order-none sm:ml-4 sm:w-auto" aria-label="Secciones principales">
+          <button
+            onClick={() => {
+              setActiveView('learn')
+              setShowExamples(false)
+              setShowHelp(false)
+            }}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none ${activeView === 'learn' ? 'bg-sky-400/15 text-sky-200 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            <GraduationCap className="h-4 w-4" /> Aprender
+          </button>
+          <button
+            onClick={() => setActiveView('lab')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none ${activeView === 'lab' ? 'bg-violet-400/15 text-violet-200 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            <FlaskConical className="h-4 w-4" /> Laboratorio
+          </button>
+        </nav>
+
+        {activeView === 'lab' && <div className="ml-auto flex items-center gap-2">
           {/* Examples dropdown */}
           <div className="relative">
             <button
@@ -467,7 +499,7 @@ export default function App() {
 
           <button
             onClick={() => setShowHelp(!showHelp)}
-            className="rounded-lg border border-slate-700 bg-slate-800/60 p-2 text-slate-400 transition hover:border-slate-600 hover:text-white"
+            className="hidden rounded-lg border border-slate-700 bg-slate-800/60 p-2 text-slate-400 transition hover:border-slate-600 hover:text-white sm:block"
             title="Ayuda"
           >
             <HelpCircle className="h-4 w-4" />
@@ -476,7 +508,7 @@ export default function App() {
           <button
             onClick={handleDebug}
             disabled={isLoadingPyodide || isRunning || !pyodide}
-            className="flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="hidden items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50 md:flex"
             title="Ejecutar paso a paso"
           >
             <Bug className="h-4 w-4" />
@@ -486,7 +518,7 @@ export default function App() {
           <button
             onClick={handleRun}
             disabled={isLoadingPyodide || isRunning || !pyodide}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-sky-500 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
           >
             {isRunning ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -495,11 +527,11 @@ export default function App() {
             )}
             Ejecutar
           </button>
-        </div>
+        </div>}
       </header>
 
       {/* Help banner */}
-      {showHelp && (
+      {activeView === 'lab' && showHelp && (
         <div className="animate-fade-in border-b border-sky-800/40 bg-sky-950/40 px-5 py-3">
           <div className="mx-auto flex max-w-4xl flex-col gap-2 text-sm text-sky-200/80">
             <p>
@@ -516,8 +548,10 @@ export default function App() {
         </div>
       )}
 
+      {activeView === 'learn' && <LearnView onOpenLab={openLessonInLab} />}
+
       {/* Loading overlay */}
-      {isLoadingPyodide && (
+      {activeView === 'lab' && isLoadingPyodide && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
           <p className="text-sm text-slate-400">{loadStatus}</p>
@@ -528,7 +562,7 @@ export default function App() {
       )}
 
       {/* Main layout */}
-      {!isLoadingPyodide && (
+      {activeView === 'lab' && !isLoadingPyodide && (
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Code editor panel */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-slate-800">
@@ -681,7 +715,7 @@ export default function App() {
       )}
 
       {/* Click outside to close examples */}
-      {showExamples && (
+      {activeView === 'lab' && showExamples && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => {
