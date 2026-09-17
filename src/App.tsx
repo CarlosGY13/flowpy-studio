@@ -10,13 +10,10 @@ import {
   Bug,
   ChevronLeft,
   ChevronRight,
-  GraduationCap,
-  FlaskConical,
 } from 'lucide-react'
 import CodeEditor from './components/CodeEditor'
 import Terminal from './components/Terminal'
 import FlowchartView from './components/FlowchartView'
-import LearnView from './components/LearnView'
 import {
   DEFAULT_CODE,
   debugPythonCode,
@@ -206,7 +203,6 @@ function InputPanel({
 }
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'learn' | 'lab'>('learn')
   const [code, setCode] = useState(DEFAULT_CODE)
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([])
   const [flowGraph, setFlowGraph] = useState<FlowGraph | null>(null)
@@ -414,28 +410,19 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (activeView === 'lab' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
         handleRun()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeView, handleRun])
+  }, [handleRun])
 
   const loadExample = (exampleCode: string) => {
     setCode(exampleCode)
     setSyntaxErrorLine(undefined)
     setShowExamples(false)
-  }
-
-  const openLessonInLab = (lessonCode: string) => {
-    setCode(lessonCode)
-    setSyntaxErrorLine(undefined)
-    setTerminalLines([{ type: 'info', text: 'Lección cargada. Presiona Ejecutar para ver el resultado.' }])
-    setFlowGraph(null)
-    setDebugSteps(null)
-    setActiveView('lab')
   }
 
   return (
@@ -452,26 +439,7 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="order-3 flex w-full rounded-xl border border-slate-800 bg-slate-950/50 p-1 sm:order-none sm:ml-4 sm:w-auto" aria-label="Secciones principales">
-          <button
-            onClick={() => {
-              setActiveView('learn')
-              setShowExamples(false)
-              setShowHelp(false)
-            }}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none ${activeView === 'learn' ? 'bg-sky-400/15 text-sky-200 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <GraduationCap className="h-4 w-4" /> Aprender
-          </button>
-          <button
-            onClick={() => setActiveView('lab')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none ${activeView === 'lab' ? 'bg-violet-400/15 text-violet-200 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <FlaskConical className="h-4 w-4" /> Laboratorio
-          </button>
-        </nav>
-
-        {activeView === 'lab' && <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {/* Examples dropdown */}
           <div className="relative">
             <button
@@ -527,11 +495,11 @@ export default function App() {
             )}
             Ejecutar
           </button>
-        </div>}
+        </div>
       </header>
 
       {/* Help banner */}
-      {activeView === 'lab' && showHelp && (
+      {showHelp && (
         <div className="animate-fade-in border-b border-sky-800/40 bg-sky-950/40 px-5 py-3">
           <div className="mx-auto flex max-w-4xl flex-col gap-2 text-sm text-sky-200/80">
             <p>
@@ -548,10 +516,8 @@ export default function App() {
         </div>
       )}
 
-      {activeView === 'learn' && <LearnView onOpenLab={openLessonInLab} />}
-
       {/* Loading overlay */}
-      {activeView === 'lab' && isLoadingPyodide && (
+      {isLoadingPyodide && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
           <p className="text-sm text-slate-400">{loadStatus}</p>
@@ -562,7 +528,7 @@ export default function App() {
       )}
 
       {/* Main layout */}
-      {activeView === 'lab' && !isLoadingPyodide && (
+      {!isLoadingPyodide && (
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Code editor panel */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-slate-800">
@@ -715,7 +681,7 @@ export default function App() {
       )}
 
       {/* Click outside to close examples */}
-      {activeView === 'lab' && showExamples && (
+      {showExamples && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => {

@@ -6,8 +6,6 @@
 
 FlowPy Studio es un espacio para practicar lógica de programación sin perderse entre líneas de código. Escribes Python, lo ejecutas y ves su recorrido en un diagrama de flujo. Si algo no queda claro, usa Debug y avanza paso a paso.
 
-La sección **Aprender** ofrece una ruta introductoria con explicaciones visuales, ejemplos financieros y preguntas de comprobación antes de pasar al laboratorio.
-
 No necesitas instalar Python ni crear una cuenta: abre el enlace y empieza.
 
 ## Empieza en tres pasos
@@ -21,8 +19,6 @@ Si aparece un `input()`, la pregunta se muestra dentro de la salida. Escribe tu 
 ## Qué encontrarás
 
 - Diagramas de flujo para instrucciones, decisiones, bucles y funciones.
-- Siete lecciones guiadas sobre variables, operaciones, listas, diccionarios, NumPy, funciones y clases.
-- Ejercicios breves con progreso guardado y ejemplos que se abren directamente en el laboratorio.
 - Zoom, pantalla completa y bloques que puedes mover para ordenar el diagrama como prefieras.
 - Ejemplos de `if`, `for`, `for` con `if`, NumPy, funciones e interacción con `input()`.
 - Un modo Debug que muestra la línea actual, las variables y la salida que el programa ha producido hasta ese momento.
