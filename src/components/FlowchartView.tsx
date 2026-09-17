@@ -63,7 +63,14 @@ const NODE_STYLES: Record<
 }
 
 function wrapText(text: string, maxChars: number): string[] {
-  const words = text.split(' ')
+  const words = text.split(' ').flatMap((word) => {
+    if (word.length <= maxChars) return [word]
+    const chunks: string[] = []
+    for (let index = 0; index < word.length; index += maxChars) {
+      chunks.push(word.slice(index, index + maxChars))
+    }
+    return chunks
+  })
   const lines: string[] = []
   let current = ''
 
@@ -73,7 +80,7 @@ function wrapText(text: string, maxChars: number): string[] {
       current = test
     } else {
       if (current) lines.push(current)
-      current = word.length > maxChars ? word.slice(0, maxChars - 1) + '…' : word
+      current = word
     }
   }
   if (current) lines.push(current)
@@ -94,8 +101,8 @@ function FlowNodeShape({
   onClick?: () => void
 }) {
   const style = NODE_STYLES[node.type]
-  const { w, h } = getNodeDimensions(node.type)
-  const lines = wrapText(node.label, node.type === 'decision' ? 18 : 24)
+  const { w, h } = getNodeDimensions(node.type, node.label)
+  const lines = wrapText(node.label, node.type === 'decision' ? 18 : 30)
   const lineHeight = 16
   const textStartY = y - ((lines.length - 1) * lineHeight) / 2
 
@@ -280,14 +287,39 @@ export default function FlowchartView({ graph, isLoading }: FlowchartViewProps) 
       const pos = { x: basePos.x + offset.x, y: basePos.y + offset.y }
       positions.set(node.id, pos)
       if (!pos) continue
-      const { w, h } = getNodeDimensions(node.type)
+      const { w, h } = getNodeDimensions(node.type, node.label)
       minX = Math.min(minX, pos.x - w / 2)
       maxX = Math.max(maxX, pos.x + w / 2)
       minY = Math.min(minY, pos.y - h / 2)
       maxY = Math.max(maxY, pos.y + h / 2)
     }
 
-    return { positions, bounds: { minX, maxX, minY, maxY } }
+    // Give every backward (loop) edge its own lane outside the nodes. Without
+    // dedicated lanes, nested loops overlap each other or pass behind blocks.
+    const loopEdges = displayGraph.edges
+      .map((edge, index) => {
+        const from = positions.get(edge.from)
+        const to = positions.get(edge.to)
+        if (!from || !to || to.y > from.y) return null
+        return { index, span: from.y - to.y }
+      })
+      .filter((edge): edge is { index: number; span: number } => edge !== null)
+      .sort((first, second) => first.span - second.span)
+
+    const loopRoutes = new Map<number, number>()
+    loopEdges.forEach((edge, lane) => {
+      loopRoutes.set(edge.index, minX - 90 - lane * 64)
+    })
+
+    const outermostLoopX = loopEdges.length
+      ? minX - 90 - (loopEdges.length - 1) * 64
+      : minX
+
+    return {
+      positions,
+      loopRoutes,
+      bounds: { minX: Math.min(minX, outermostLoopX - 20), maxX, minY, maxY },
+    }
   }, [displayGraph, nodeOffsets])
 
   useEffect(() => {
@@ -520,21 +552,18 @@ export default function FlowchartView({ graph, isLoading }: FlowchartViewProps) 
 
                 const fromNode = displayGraph.nodes.find((n) => n.id === edge.from)
                 const toNode = displayGraph.nodes.find((n) => n.id === edge.to)
-                const fromDim = getNodeDimensions(fromNode?.type ?? 'process')
-                const toDim = getNodeDimensions(toNode?.type ?? 'process')
+                const fromDim = getNodeDimensions(fromNode?.type ?? 'process', fromNode?.label)
+                const toDim = getNodeDimensions(toNode?.type ?? 'process', toNode?.label)
 
                 const x1 = fromPos.x
                 const y1 = fromPos.y + fromDim.h / 2
               const x2 = toPos.x
               const y2 = toPos.y - toDim.h / 2
               const midY = (y1 + y2) / 2
-              const isLoopBack = toPos.y <= fromPos.y
-              const side = fromPos.x <= toPos.x ? -1 : 1
-              const routeX = side < 0
-                ? Math.min(x1 - fromDim.w / 2, x2 - toDim.w / 2) - 100
-                : Math.max(x1 + fromDim.w / 2, x2 + toDim.w / 2) + 100
+              const loopRouteX = layout.loopRoutes.get(i)
+              const isLoopBack = loopRouteX !== undefined
               const edgePath = isLoopBack
-                ? `M ${x1} ${y1} C ${routeX} ${y1}, ${routeX} ${toPos.y}, ${x2 + side * toDim.w / 2} ${toPos.y}`
+                ? `M ${x1} ${y1} C ${loopRouteX} ${y1}, ${loopRouteX} ${toPos.y}, ${x2 - toDim.w / 2} ${toPos.y}`
                 : `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`
 
                 return (
@@ -546,7 +575,7 @@ export default function FlowchartView({ graph, isLoading }: FlowchartViewProps) 
                       strokeWidth={2}
                       markerEnd="url(#arrowhead)"
                     />
-                    {edge.label && (
+                    {edge.label && !isLoopBack && (
                       <text
                         x={(x1 + x2) / 2 + 8}
                         y={midY}

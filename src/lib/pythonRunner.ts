@@ -288,7 +288,7 @@ def _expr_label(node):
     if node is None:
         return ""
     try:
-        return _short(ast.unparse(node))
+        return " ".join(ast.unparse(node).split())
     except Exception:
         # Some AST helper nodes (for example operators) cannot be unparsed on
         # every supported Python version.  Their class name is still clearer
@@ -320,7 +320,7 @@ class FlowBuilder:
 
     def _add_node(self, ntype, label, function_name=None):
         nid = self._new_id()
-        node = {"id": nid, "type": ntype, "label": _short(label, 56)}
+        node = {"id": nid, "type": ntype, "label": " ".join(str(label).split())}
         if function_name:
             node["functionName"] = function_name
         self.nodes.append(node)
@@ -332,6 +332,33 @@ class FlowBuilder:
             if label:
                 edge["label"] = label
             self.edges.append(edge)
+
+    def _collapse_passthrough_nodes(self):
+        """Remove visual-only continuation boxes and preserve their paths."""
+        labels = {"continuar", "continuar después del bucle", "fin del bucle"}
+        passthrough_ids = [
+            node["id"] for node in self.nodes
+            if node["type"] == "process" and node["label"] in labels
+        ]
+
+        for node_id in passthrough_ids:
+            incoming = [edge for edge in self.edges if edge["to"] == node_id]
+            outgoing = [edge for edge in self.edges if edge["from"] == node_id]
+            self.edges = [
+                edge for edge in self.edges
+                if edge["from"] != node_id and edge["to"] != node_id
+            ]
+
+            for before in incoming:
+                for after in outgoing:
+                    edge = {"from": before["from"], "to": after["to"]}
+                    label = before.get("label") or after.get("label")
+                    if label:
+                        edge["label"] = label
+                    if edge not in self.edges:
+                        self.edges.append(edge)
+
+            self.nodes = [node for node in self.nodes if node["id"] != node_id]
 
     def build(self, code):
         self.nodes = []
@@ -353,6 +380,7 @@ class FlowBuilder:
         }
         body_exit = self._build_body(tree.body, start)
         self._connect(body_exit, self.end_id)
+        self._collapse_passthrough_nodes()
         return {"nodes": self.nodes, "edges": self.edges}
 
     def build_function(self, function_node):
@@ -363,6 +391,7 @@ class FlowBuilder:
         self.end_id = self._add_node("end", f"Fin: {function_node.name}()")
         body_exit = self._build_body(function_node.body, start)
         self._connect(body_exit, self.end_id)
+        self._collapse_passthrough_nodes()
         return {"nodes": self.nodes, "edges": self.edges}
 
     def _build_body(self, stmts, entry):
@@ -459,7 +488,7 @@ class FlowBuilder:
             body_exit = self._build_body(stmt.body, header)
             if len(self.edges) > body_edge:
                 self.edges[body_edge]["label"] = "Sí"
-            self._connect(body_exit, header, "repetir")
+            self._connect(body_exit, header)
             after = self._add_node("process", "continuar después del bucle")
             self._connect(header, after, "No")
             if stmt.orelse:
@@ -474,7 +503,7 @@ class FlowBuilder:
             body_exit = self._build_body(stmt.body, cond)
             if len(self.edges) > body_edge:
                 self.edges[body_edge]["label"] = "Sí"
-            self._connect(body_exit, cond, "repetir")
+            self._connect(body_exit, cond)
             after = self._add_node("process", "fin del bucle")
             self._connect(cond, after, "No")
             return after
@@ -555,81 +584,84 @@ def build_flowchart(code):
 `
 
 export const DEFAULT_CODE = `# ¡Bienvenido a FlowPy Studio!
-# Escribe Python 3 aquí y mira el diagrama de flujo.
+# Ejecuta este código y observa cada paso en el diagrama.
 
-import numpy as np
+nota = 16
 
-# Crear un arreglo de números
-numeros = np.array([1, 2, 3, 4, 5])
-
-# Calcular el promedio
-promedio = np.mean(numeros)
-
-print("Los números son:", numeros)
-print("El promedio es:", promedio)
-
-# Usar un bucle para mostrar cada número
-for n in numeros:
-    if n > promedio:
-        print(n, "está por encima del promedio")
-    else:
-        print(n, "está por debajo o igual al promedio")
+if nota >= 11:
+    print("Resultado: aprobado")
+else:
+    print("Resultado: desaprobado")
 `
 
 export const EXAMPLES: { name: string; code: string }[] = [
   {
-    name: 'Estructuras condicionales · if / else',
-    code: `edad = 18
+    name: 'Decidir con if y else',
+    code: `# Comprobar si una persona es mayor de edad
+edad = 16
 
 if edad >= 18:
-    print("Puedes votar")
+    print("Eres mayor de edad")
 else:
-    print("Aún no puedes votar")`,
+    años_faltantes = 18 - edad
+    print("Aún eres menor de edad")
+    print("Te faltan", años_faltantes, "años")`,
   },
   {
-    name: 'Estructuras iterativas · for',
-    code: `for numero in range(1, 6):
-    print("Número:", numero)`,
+    name: 'Repetir acciones con for',
+    code: `# Mostrar los números del 1 al 5
+for numero in range(1, 6):
+    print("Número", numero)
+
+print("Conteo terminado")`,
   },
   {
-    name: 'Decisiones dentro de un bucle',
-    code: `numeros = [3, 8, 12, 5, 20]
+    name: 'Combinar for con if',
+    code: `# Clasificar cada número como par o impar
+numeros = [3, 8, 12, 5]
 
 for numero in numeros:
-    if numero >= 10:
-        print(numero, "es mayor o igual a 10")
+    if numero % 2 == 0:
+        print(numero, "es par")
     else:
-        print(numero, "es menor que 10")`,
+        print(numero, "es impar")`,
   },
   {
-    name: 'Arreglos y promedios con NumPy',
-    code: `import numpy as np
+    name: 'Calcular un promedio con NumPy',
+    code: `# Calcular el promedio de varias notas
+import numpy as np
 
-datos = np.array([10, 20, 30, 40, 50])
-promedio = np.mean(datos)
+notas = np.array([14, 17, 13, 16])
+promedio = np.mean(notas)
 
-print("Datos:", datos)
-print("Promedio:", promedio)`,
+print("Notas:", notas)
+print("Promedio:", promedio)
+
+if promedio >= 11:
+    print("El promedio es aprobatorio")
+else:
+    print("El promedio es desaprobatorio")`,
   },
   {
-    name: 'Funciones y valores de retorno',
-    code: `def calcular_total(numeros):
-    total = sum(numeros)
+    name: 'Crear y utilizar una función',
+    code: `# Una función recibe dos precios y devuelve su suma
+def calcular_total(precio_a, precio_b):
+    total = precio_a + precio_b
     return total
 
-valores = [4, 8, 15, 16]
-resultado = calcular_total(valores)
-print("Total:", resultado)`,
+resultado = calcular_total(25, 18)
+print("Total de la compra:", resultado)`,
   },
   {
-    name: 'Entrada de datos y ciclo while',
-    code: `edad = int(input("¿Qué edad tienes?"))
+    name: 'Pedir datos con input y while',
+    code: `# Repetir la pregunta hasta acertar el número
+numero = int(input("Adivina el número del 1 al 5: "))
 
-while edad != 18:
-    print("Todavía no tienes 18 años")
-    edad = int(input("¿Qué edad tienes?"))
+while numero != 3:
+    print("Ese no es. Intenta otra vez.")
+    numero = int(input("Escribe otro número: "))
 
-print("¡Ahora tienes 18 años!")`,
+print("¡Correcto! El número era 3.")`,
   },
 ]
 
@@ -698,7 +730,7 @@ export function layoutGraph(graph: FlowGraph): Map<string, { x: number; y: numbe
     byLayer.get(layer)!.push(node)
   }
 
-  const NODE_W = 220
+  const NODE_W = 260
   // Leave dedicated lanes for the Sí/No branches and loop-back arrows.
   // This keeps labels and connections legible in nested for + if diagrams.
   const GAP_X = 150
@@ -713,7 +745,7 @@ export function layoutGraph(graph: FlowGraph): Map<string, { x: number; y: numbe
   // row height made their lower half overlap the following layer, especially
   // in if statements nested inside loops.
   for (const [layer, nodes] of orderedLayers) {
-    const tallestNode = Math.max(...nodes.map((node) => getNodeDimensions(node.type).h))
+    const tallestNode = Math.max(...nodes.map((node) => getNodeDimensions(node.type, node.label).h))
     layerY.set(layer, nextY + tallestNode / 2)
     nextY += tallestNode + GAP_Y
   }
@@ -730,16 +762,19 @@ export function layoutGraph(graph: FlowGraph): Map<string, { x: number; y: numbe
   return positions
 }
 
-export function getNodeDimensions(type: FlowNode['type']): { w: number; h: number } {
+export function getNodeDimensions(type: FlowNode['type'], label = ''): { w: number; h: number } {
+  const estimatedLines = Math.max(1, Math.ceil(label.length / 30))
+  const contentHeight = estimatedLines * 16 + 32
+
   switch (type) {
     case 'decision':
       return { w: 200, h: 200 }
     case 'loop':
-      return { w: 230, h: 80 }
+      return { w: 260, h: Math.max(80, contentHeight) }
     case 'start':
     case 'end':
       return { w: 160, h: 56 }
     default:
-      return { w: 220, h: 72 }
+      return { w: 280, h: Math.max(96, contentHeight) }
   }
 }
